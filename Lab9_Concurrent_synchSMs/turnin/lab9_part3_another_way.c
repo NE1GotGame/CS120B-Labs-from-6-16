@@ -1,3 +1,4 @@
+
 /*	Author: lab
  *  Partner(s) Name: 
  *	Lab Section:
@@ -8,10 +9,63 @@
  *	code, is my own original work.
  */
 #include <avr/io.h>
-#include "timer.h"
+#include <avr/interrupt.h>
 #ifdef _SIMULATE_
 #include "simAVRHeader.h"
 #endif
+
+typedef struct _Task {
+    int state;
+    unsigned long period;
+    unsigned long elapsedTime;
+    int (*TickFct) (int);
+} Task;
+
+const unsigned char tasksSize = 4;
+Task tasks[4];
+const unsigned char tasksPeriod = 1;
+
+volatile unsigned char TimerFlag = 0;
+
+unsigned long _avr_timer_M = 1;
+unsigned long _avr_timer_cntcurr = 0;
+
+void TimerOn() {
+    TCCR1B = 0x0B;
+    OCR1A = 125;
+    TIMSK1 = 0x02;
+    TCNT1 = 0;
+    _avr_timer_cntcurr = _avr_timer_M;
+    SREG |= 0x80;
+}
+
+void TimerOff() {
+    TCCR1B = 0x00;
+}
+
+void TimerISR() {
+    unsigned char i;
+    for(i = 0; i < tasksSize; i++) {
+        if(tasks[i].elapsedTime >= tasks[i].period) {
+            tasks[i].state = tasks[i].TickFct(tasks[i].state);
+            tasks[i].elapsedTime = 0;
+        }
+        tasks[i].elapsedTime += tasksPeriod;
+    }
+}
+
+ISR(TIMER1_COMPA_vect) {
+    _avr_timer_cntcurr--;
+    if(_avr_timer_cntcurr == 0) {
+        TimerISR();
+        _avr_timer_cntcurr = _avr_timer_M;
+    }
+}
+
+void TimerSet(unsigned long M) {
+    _avr_timer_M = M;
+    _avr_timer_cntcurr = _avr_timer_M;
+}
 
 enum SM3LED{LED1, LED2, LED3}ThreeLEDsSM;
 
@@ -72,7 +126,7 @@ void tickBlink() {
 	}
 }
 
-enum SMspeaker{Spkinit, OFF, ON} SpeakerState;
+enum SMspeaker{init, OFF, ON} SpeakerState;
 
 unsigned char speakerValue = 0;
 unsigned char switchA2;
@@ -80,7 +134,7 @@ unsigned char switchA2;
 void tickSpeaker() {
 	switchA2 = ~PINA & 0x04;
 	switch (SpeakerState) {
-		case Spkinit:
+		case init:
 			SpeakerState = OFF;
 			break;
 		case OFF:
@@ -94,11 +148,11 @@ void tickSpeaker() {
 			}
 			break;
 		default:
-            		SpeakerState = Spkinit;
+            		SpeakerState = init;
             		break;
 	}
 	switch (SpeakerState) {
-		case Spkinit:
+		case init:
 			break;
 		case OFF:
 			speakerValue = 0x00;  //turn off PB4 while keeping the LED going
@@ -111,62 +165,6 @@ void tickSpeaker() {
 	}
 }
 
-
-enum FrequencySM{ButtonInit, increase, incRelease, decrease, decRelease} FreqButtonState;
-unsigned char time = 2;
-unsigned char ButtonA0;
-unsigned char ButtonA1;
-
-
-void FrequencyTick(){
-    ButtonA0 = ~PINA & 0x01;
-    ButtonA1 = ~PINA & 0x02;
-	switch(FreqButtonState){
-		case ButtonInit:
-			if(ButtonA0 && !ButtonA1){
-				FreqButtonState = increase;
-			}else if (!ButtonA0 && ButtonA1){
-				FreqButtonState = decrease;
-			}else{
-				FreqButtonState = ButtonInit;
-			}
-			break;
-		case increase:
-			FreqButtonState = incRelease; break;
-		case incRelease:
-			if(ButtonA0){
-				FreqButtonState = incRelease;
-			}else{
-				FreqButtonState = ButtonInit;
-			}
-			break;
-		case decrease:
-			FreqButtonState = decRelease; break;
-		case decRelease:
-			if(ButtonA1){
-				FreqButtonState = decRelease;
-			}else{
-				FreqButtonState = ButtonInit;
-			}
-			break;
-		default:
-			break;
-	}
-	switch(FreqButtonState){
-		case ButtonInit: 
-			break;
-		case increase:
-			time += 0x01; break;
-		case incRelease:
-			break;
-		case decrease:
-			time -= 0x01; break;
-		case decRelease:
-			break;
-		default:
-			break;	
-	}
-}
 enum SMcombine{combine1}CombineLEDsSM;
 
 void tickCombine() {
@@ -190,38 +188,34 @@ int main(void) {
 	DDRA = 0x00;	PORTA = 0xFF;	
 	DDRB = 0xFF;	PORTB = 0x00;
 	
-	unsigned long LEDs_Period = 300;
-	unsigned long blink_Period = 1000;
-	unsigned long period = 1;
-	unsigned long speaker_Period = 2;
-	
+	unsigned char i = 0;
+    	tasks[i].state = ThreeLEDsSM;
+   	tasks[i].period = 300;
+   	tasks[i].elapsedTime = tasks[i].period;
+    	tasks[i].TickFct = &tick3LED;
+    	i++;    
+    	tasks[i].state = BlinkingLEDSM;
+    	tasks[i].period = 1000;
+    	tasks[i].elapsedTime = tasks[i].period;
+    	tasks[i].TickFct = &tickBlink;
+    	i++;
+    	tasks[i].state = SpeakerState;
+    	tasks[i].period = 2;
+    	tasks[i].elapsedTime = tasks[i].period;
+    	tasks[i].TickFct = &tickSpeaker;
+    	i++;
+    	tasks[i].state = CombineLEDsSM;
+    	tasks[i].period = 1;
+    	tasks[i].elapsedTime = tasks[i].period;
+    	tasks[i].TickFct = &tickCombine;
+
 
 	TimerOn();
-	TimerSet(period);
+	TimerSet(tasksPeriod);
 
     /* Insert your solution below */
-    while (1) {	
-	if (LEDs_Period >= 300) {
-		tick3LED();
-		LEDs_Period = 0;
-	}
-	if (blink_Period >= 1000) {
-		tickBlink();
-		blink_Period = 0;
-	}
-	if (speaker_Period >= time) {
-		tickSpeaker();
-		speaker_Period = 0;
-	} 
-
-	FrequencyTick();
-	tickCombine();
-	while(!TimerFlag) {};
-	TimerFlag = 0;
-
-	LEDs_Period += period;    //increase timer by the period
-	blink_Period += period;   //increase timer by the period
-	speaker_Period += period;  //increase timer by the period
+    while (1) {
+	//sleep();
     } 
     return 1;
 }

@@ -1,11 +1,13 @@
 /*	Author: lab
  *  Partner(s) Name: 
  *	Lab Section:
- *	Assignment: Lab #  Exercise #
+ *	Assignment: Lab #9  Exercise #3
  *	Exercise Description: [optional - include for your own benefit]
  *
  *	I acknowledge all content contained herein, excluding template or example
  *	code, is my own original work.
+ *
+ *  Demo Video: https://youtu.be/aQRmQW-6HWQ
  */
 #include <avr/io.h>
 #include "timer.h"
@@ -72,7 +74,7 @@ void tickBlink() {
 	}
 }
 
-enum SMspeaker{Spkinit, OFF, ON} SpeakerState;
+enum SMspeaker{init, OFF, ON} SpeakerState;
 
 unsigned char speakerValue = 0;
 unsigned char switchA2;
@@ -80,7 +82,7 @@ unsigned char switchA2;
 void tickSpeaker() {
 	switchA2 = ~PINA & 0x04;
 	switch (SpeakerState) {
-		case Spkinit:
+		case init:
 			SpeakerState = OFF;
 			break;
 		case OFF:
@@ -94,11 +96,11 @@ void tickSpeaker() {
 			}
 			break;
 		default:
-            		SpeakerState = Spkinit;
+            		SpeakerState = init;
             		break;
 	}
 	switch (SpeakerState) {
-		case Spkinit:
+		case init:
 			break;
 		case OFF:
 			speakerValue = 0x00;  //turn off PB4 while keeping the LED going
@@ -111,62 +113,6 @@ void tickSpeaker() {
 	}
 }
 
-
-enum FrequencySM{ButtonInit, increase, incRelease, decrease, decRelease} FreqButtonState;
-unsigned char time = 2;
-unsigned char ButtonA0;
-unsigned char ButtonA1;
-
-
-void FrequencyTick(){
-    ButtonA0 = ~PINA & 0x01;
-    ButtonA1 = ~PINA & 0x02;
-	switch(FreqButtonState){
-		case ButtonInit:
-			if(ButtonA0 && !ButtonA1){
-				FreqButtonState = increase;
-			}else if (!ButtonA0 && ButtonA1){
-				FreqButtonState = decrease;
-			}else{
-				FreqButtonState = ButtonInit;
-			}
-			break;
-		case increase:
-			FreqButtonState = incRelease; break;
-		case incRelease:
-			if(ButtonA0){
-				FreqButtonState = incRelease;
-			}else{
-				FreqButtonState = ButtonInit;
-			}
-			break;
-		case decrease:
-			FreqButtonState = decRelease; break;
-		case decRelease:
-			if(ButtonA1){
-				FreqButtonState = decRelease;
-			}else{
-				FreqButtonState = ButtonInit;
-			}
-			break;
-		default:
-			break;
-	}
-	switch(FreqButtonState){
-		case ButtonInit: 
-			break;
-		case increase:
-			time += 0x01; break;
-		case incRelease:
-			break;
-		case decrease:
-			time -= 0x01; break;
-		case decRelease:
-			break;
-		default:
-			break;	
-	}
-}
 enum SMcombine{combine1}CombineLEDsSM;
 
 void tickCombine() {
@@ -194,7 +140,6 @@ int main(void) {
 	unsigned long blink_Period = 1000;
 	unsigned long period = 1;
 	unsigned long speaker_Period = 2;
-	
 
 	TimerOn();
 	TimerSet(period);
@@ -209,12 +154,11 @@ int main(void) {
 		tickBlink();
 		blink_Period = 0;
 	}
-	if (speaker_Period >= time) {
+	if (speaker_Period >= 2) {
 		tickSpeaker();
 		speaker_Period = 0;
 	} 
 
-	FrequencyTick();
 	tickCombine();
 	while(!TimerFlag) {};
 	TimerFlag = 0;
@@ -225,4 +169,4 @@ int main(void) {
     } 
     return 1;
 }
-
+ttps://youtu.be/-9aLnkO9S-8
