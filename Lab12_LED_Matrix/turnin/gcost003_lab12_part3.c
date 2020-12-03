@@ -15,21 +15,14 @@
 #include "scheduler.h"
 #include "timer.h"
 
-//--------------------------------------
-// LED Matrix Demo SynchSM
-// Period: 100 ms
-//--------------------------------------
-
-//Global Variables
-//static unsigned char B1 = 0x00;
-//static unsigned char B2 = 0x00;
-
-//static int row[3] = {0xFD, 0xFB, 0xF7};
-//static int pattern[3]= {0x3C, 0x24, 0x3C};
+static int row[3] = {0xFD, 0xFB, 0xF7};
+static int pattern[3]= {0x3C, 0x24, 0x3C};
 
 static unsigned char cnt = 0x00; 
+unsigned char tempC;
+unsigned char tempD;
 
-enum Demo_States {S1, S2, S3};
+enum Demo_States {states};
 int Demo_Tick(int state) {
 
 	// Local Variables
@@ -37,48 +30,34 @@ int Demo_Tick(int state) {
 	//B2 = ~PINA & 0x02;
 	//tempA = ~PINA & 0x00;	
 		
-	static unsigned char pattern; //= 0x3C;	 LED pattern - 0: LED off; 1: LED on
-	static unsigned char row;     //= 0xE1;  	 Row(s) displaying pattern. 
+	//static unsigned char pattern;	 LED pattern - 0: LED off; 1: LED on
+	//static unsigned char row;       	 Row(s) displaying pattern. 
 							// 0: display pattern on row
 							// 1: do NOT display pattern on row
 	// Transitions
 	switch (state) {
-		case S1:
-			if(cnt == 0) {
-				cnt++;
-				row = 0xFD;
-				pattern = 0x3C;
-				state = S2;			
-			}			
-			break;
-		case S2:
-			if(cnt == 1) {
-				cnt++;
-				row = 0xFB;
-				pattern = 0x24;
-				state = S3;
-			}
-			break;
-		case S3:
-			if(cnt == 2) {
-				cnt = 0;
-				row = 0xF7;
-				pattern = 0x3C;
-				state = S1;	
-			}
-			break;
+		case states:
 		default:
+			state = states;
 			break;
 	}	
-	// Actions
-	/*switch (state) {
-		case Display:
-			pattern = pattern & 0x
+	// Action
+	switch (state) {
+		case states:
+			if(cnt < 3) {
+				tempC = pattern[cnt];
+				tempD = row[cnt];
+				cnt++;
+			}
+			else if (cnt == 3) {
+				cnt = 0;
+			}
+			break;
 		default:
 			break;
-	}*/
-	PORTC = pattern;	// Pattern to display
-	PORTD = row;		// Row(s) displaying pattern	
+	}
+	PORTC = tempC;	// Pattern to display
+	PORTD = tempD;		// Row(s) displaying pattern	
 	return state;
 }
 

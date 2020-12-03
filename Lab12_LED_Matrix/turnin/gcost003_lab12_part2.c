@@ -66,6 +66,7 @@ int Demo_Tick(int state) {
 			else {
 				state = wait;
 			}
+			break;
 		case left:
 			state = shiftLeft;
 			break;
